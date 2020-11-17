@@ -1,6 +1,6 @@
 'use strict'
 
-import { app, BrowserWindow, dialog } from 'electron'
+import { app, BrowserWindow, dialog, Menu } from 'electron'
 import { execSync, exec, spawnSync, spawn } from 'child_process'
 import * as fs from 'fs'
 import * as fixPath from 'fix-path'
@@ -11,6 +11,13 @@ const isDevelopment = process.env.NODE_ENV !== 'production'
 fixPath()
 
 let jupyterPath;
+
+const dockMenu = Menu.buildFromTemplate([
+  {
+    label: 'New Jupyter Lab Window',
+    click () { newWindow() }
+  }
+])
 
 // global reference to mainWindow (necessary to prevent window from being garbage collected)
 
@@ -81,13 +88,13 @@ app.on('window-all-closed', () => {
   }
 })
 
-app.on('activate', () => {
-  // on macOS it is common to re-create a window even after all windows have been closed
-  // No, we are not doing this
+app.on('activate', (event, hasVisibleWindows) => {
+  if (!hasVisibleWindows) {
+    newWindow();
+  }
 })
 
-app.on('open-file', async (event, path) => {
-  event.preventDefault();
+async function openFolder(path) {
   let url
   if (fs.existsSync(path) && fs.lstatSync(path).isDirectory()) {
     if (path.endsWith('/')) {
@@ -111,11 +118,26 @@ app.on('open-file', async (event, path) => {
       message: `${path} is not a directory!`
     })
   }
+}
+
+async function newWindow() {
+  let path = dialog.showOpenDialogSync(null, {
+    title: "Jupyter Desktop",
+    message: "Select a location to launch Jupyter Lab",
+    buttonLabel: "Launch Jupyter",
+    properties: ["openDirectory", "createDirectory"]
+  })[0]
+  await openFolder(path);
+}
+
+app.on('open-file', async (event, path) => {
+  event.preventDefault()
+  await openFolder(path)
 })
 
 // create main BrowserWindow when electron is ready
-app.on('ready', () => {
-  console.log(process.argv);
+app.on('ready', async () => {
+  app.dock.setMenu(dockMenu)
   try {
     jupyterPath = execSync("which jupyter").toString().replace("\n", "")
     } catch (err) {
@@ -131,5 +153,7 @@ app.on('ready', () => {
       console.warn('Jupyter Desktop: Invalid URL.')
       app.quit()
     }
+  } else {
+    await newWindow()
   }
 })
