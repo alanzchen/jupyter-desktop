@@ -1,48 +1,75 @@
 'use strict'
 
-import { app, BrowserWindow } from 'electron'
-import * as path from 'path'
-import { format as formatUrl } from 'url'
+import { app, BrowserWindow, dialog } from 'electron'
+import { execSync, exec, spawnSync, spawn } from 'child_process'
+import * as fs from 'fs'
+import * as fixPath from 'fix-path'
+import { basename } from 'path'
 
 const isDevelopment = process.env.NODE_ENV !== 'production'
 
+fixPath()
+
+let jupyterPath;
+
 // global reference to mainWindow (necessary to prevent window from being garbage collected)
-let mainWindow
 
-function createMainWindow() {
-  const window = new BrowserWindow({webPreferences: {nodeIntegration: true}})
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}   
 
-  // if (isDevelopment) {
-  //   window.webContents.openDevTools()
-  // }
+function getNotebookList() {
+  let list_str = execSync(`${jupyterPath} notebook list --jsonlist`).toString();
+  let notebooks = JSON.parse(list_str);
+  let map = new Map();
+  notebooks.forEach((v, i, a) => {
+    let key = v["notebook_dir"]
+    let url = `${v["url"]}?token=${v["token"]}`
+    map.set(key, url)
+  })
+  return map
+}
 
-  // if (isDevelopment) {
-  //   window.loadURL(`http://localhost:${process.env.ELECTRON_WEBPACK_WDS_PORT}`)
-  // }
-  // else {
-  //   window.loadURL(formatUrl({
-  //     pathname: path.join(__dirname, 'index.html'),
-  //     protocol: 'file',
-  //     slashes: true
-  //   }))
-  // }
-  console.log(process.argv);
-  if(process.argv.length > 1) {
-    const url = process.argv[1];
-    window.loadURL(url);
+function launchJupyter(path) {
+  return exec(`${jupyterPath} lab --no-browser -y --notebook-dir="${path}"`)
+}
+
+function createWindow(url, path = undefined, proc = undefined) {
+  let window = new BrowserWindow({webPreferences: {nodeIntegration: true}})
+  if (path) {
+    window.setTitle(`Jupyter Desktop - ${basename(path)}`)
   }
 
+  window.on('page-title-updated', (evt) => {
+    evt.preventDefault();
+  });
+
   window.on('closed', () => {
-    mainWindow = null
+    if (proc) {
+      proc.kill('SIGINT')
+      proc.kill('SIGINT')
+      proc.kill()
+    }
+    window = null
   })
 
-  window.webContents.on('devtools-opened', () => {
-    window.focus()
-    setImmediate(() => {
-      window.focus()
-    })
+  window.on('close', (e) => {
+    if (proc) {
+      let choice = dialog.showMessageBoxSync({
+        type: 'question',
+        buttons: ['Yes', 'No'],
+        title: 'Confirm',
+        message: 'Unsaved data will be lost. Are you sure you want to quit?'
+      })
+      if (choice === 1) {
+        e.preventDefault();
+      }
+    }
   })
 
+  window.loadURL(url)
   return window
 }
 
@@ -56,12 +83,53 @@ app.on('window-all-closed', () => {
 
 app.on('activate', () => {
   // on macOS it is common to re-create a window even after all windows have been closed
-  if (mainWindow === null) {
-    mainWindow = createMainWindow()
+  // No, we are not doing this
+})
+
+app.on('open-file', async (event, path) => {
+  event.preventDefault();
+  let url
+  if (fs.existsSync(path) && fs.lstatSync(path).isDirectory()) {
+    if (path.endsWith('/')) {
+      key = path.slice(0, -1)
+    }
+    let map = getNotebookList()
+    url = map.get(path)
+    if (url) {
+      createWindow(url)
+    } else {
+      const proc = launchJupyter(path)
+      while (!url) {
+        await sleep(500)
+        let map = getNotebookList()
+        url = map.get(path)
+      }
+      createWindow(url, path, proc)
+    }
+  } else {
+    dialog.showMessageBox(null, {
+      message: `${path} is not a directory!`
+    })
   }
 })
 
 // create main BrowserWindow when electron is ready
 app.on('ready', () => {
-  mainWindow = createMainWindow()
+  console.log(process.argv);
+  try {
+    jupyterPath = execSync("which jupyter").toString().replace("\n", "")
+    } catch (err) {
+      dialog.showMessageBox(null, {
+        message: `${err}`
+      })
+  }
+  if(process.argv.length > 1) {
+    const arg = process.argv[1];
+    if (arg.startsWith('http') || arg.startsWith('file')) {
+      createWindow(arg)
+    } else if (!process.argv[0].endsWith('Electron')) {
+      console.warn('Jupyter Desktop: Invalid URL.')
+      app.quit()
+    }
+  }
 })
