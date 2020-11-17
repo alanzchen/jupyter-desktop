@@ -16,7 +16,7 @@ You can now open the app, drag & drop a folder to launch a Jupyter Lab there!
 
 If you prefer to launch from terminal, follow the steps below:
 
-## For Jupyter Lab
+## Launching from Terminal
 
 You need to generate a configuration file for your Jupyter Lab, if you havn't already.
 
@@ -29,15 +29,13 @@ Then you need to add the following line in your configuration file `~/.jupyter/j
 
 ```
 c.LabApp.browser = '/Applications/Jupyter\ Desktop.app/Contents/MacOS/Jupyter\ Desktop %s'
-
-# or also for Notebook
-
-c.NotebookApp.browser = '/Applications/Jupyter\ Desktop.app/Contents/MacOS/Jupyter\ Desktop %s'
+c.NotebookApp.browser = '/Applications/Jupyter\ Desktop.app/Contents/MacOS/Jupyter\ Desktop %s' # or also for Notebook
 ```
 
 Now you can normally start a Jupyter Lab or Notebook session in terminal.
 
 ```
 jupyter lab
+# or
 jupyter notebook
 ```
