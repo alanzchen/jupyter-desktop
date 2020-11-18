@@ -1,3 +1,5 @@
+<img src="https://i.loli.net/2020/11/18/LDdrkAqs4JmwjGu.png" width="100">
+
 # Jupyter Desktop
 Standalone macOS App for Jupyter Lab or Jupyter Notebook
 
