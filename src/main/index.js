@@ -1,7 +1,7 @@
 'use strict'
 
-import { app, BrowserWindow, dialog, Menu } from 'electron'
-import { execSync, exec, spawnSync, spawn } from 'child_process'
+import { app, BrowserWindow, dialog, Menu, shell } from 'electron'
+import { execSync, exec } from 'child_process'
 import * as fs from 'fs'
 import * as fixPath from 'fix-path'
 import { basename } from 'path'
@@ -75,6 +75,16 @@ function createWindow(url, path = undefined, proc = undefined) {
       }
     }
   })
+
+  window.webContents.on('new-window', function(e, url) {
+    // make sure local urls stay in electron perimeter
+    if('file://' === url.substr(0, 'file://'.length)) {
+      return;
+    }
+    // and open every other protocols on the browser      
+    e.preventDefault();
+    shell.openExternal(url);
+  });
 
   window.loadURL(url)
   return window
