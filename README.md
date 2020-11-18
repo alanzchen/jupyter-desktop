@@ -1,12 +1,13 @@
-# jupyter-desktop
-Standalone Desktop App for Jupyter Lab or Jupyter Notebook
+# Jupyter Desktop
+Standalone macOS App for Jupyter Lab or Jupyter Notebook
 
 # Features
 
  - A standalone app for your Jupyter Lab / Notebook. No more finding Jupyter Lab under your piles of browser tabs!
  - Directly drag & drop a folder to the Jupter Desktop's Dock icon and launch a Jupyter Lab session. It even kills the Jupyter Lab seesion when you close the window.
- - Support multiple instances
+ - Support multiple instances.
  - Prefer launching from Terminal? Sure thing.
+ - Big Sur ready.
 
 # Installation & Usage
 
