@@ -4,6 +4,8 @@
   "author": "Alan Chen",
   "license": "MIT",
   "productName": "Jupyter Desktop",
+  "repository": "https://github.com/alanzchen/jupyter-desktop",
+  "homepage": "https://github.com/alanzchen/jupyter-desktop",
   "scripts": {
     "dev": "electron-webpack dev",
     "compile": "electron-webpack",
