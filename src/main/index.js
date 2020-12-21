@@ -25,16 +25,15 @@ function sleep(ms) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
-}   
+}
 
-function getNotebookList() {
+function getLabSessions() {
   let list_str = execSync(`${jupyterPath} notebook list --jsonlist`).toString();
   let notebooks = JSON.parse(list_str);
   let map = new Map();
   notebooks.forEach((v, i, a) => {
     let key = v["notebook_dir"]
-    let url = `${v["url"]}?token=${v["token"]}`
-    map.set(key, url)
+    map.set(key, v)
   })
   return map
 }
@@ -56,8 +55,11 @@ function createWindow(url, path = undefined, proc = undefined) {
   window.on('closed', () => {
     if (proc) {
       proc.kill('SIGINT')
-      proc.kill('SIGINT')
+      proc.kill('SIGTERM')
       proc.kill()
+    } else if (path) {
+      const pid = getLabSessions().get(path).pid
+      process.kill(pid, "SIGTERM")
     }
     window = null
   })
@@ -78,7 +80,7 @@ function createWindow(url, path = undefined, proc = undefined) {
 
   window.webContents.on('new-window', function(e, url) {
     // make sure local urls stay in electron perimeter
-    if('file://' === url.substr(0, 'file://'.length)) {
+    if(url.startsWith('file://')) {
       return;
     }
     // and open every other protocols on the browser      
@@ -105,23 +107,20 @@ app.on('activate', (event, hasVisibleWindows) => {
 })
 
 async function openFolder(path) {
-  let url
   if (fs.existsSync(path) && fs.lstatSync(path).isDirectory()) {
     if (path.endsWith('/')) {
-      key = path.slice(0, -1)
+      path = path.slice(0, -1)
     }
-    let map = getNotebookList()
-    url = map.get(path)
-    if (url) {
-      createWindow(url)
+    let labSession = getLabSessions().get(path)
+    if (labSession) {
+      createWindow(labSession.url, path)
     } else {
       const proc = launchJupyter(path)
-      while (!url) {
+      while (!labSession) {
         await sleep(500)
-        let map = getNotebookList()
-        url = map.get(path)
+        labSession = getLabSessions().get(path)
       }
-      createWindow(url, path, proc)
+      createWindow(labSession.url, path, proc)
     }
   } else {
     dialog.showMessageBox(null, {
@@ -136,8 +135,10 @@ async function newWindow() {
     message: "Select a location to launch Jupyter Lab",
     buttonLabel: "Launch Jupyter",
     properties: ["openDirectory", "createDirectory"]
-  })[0]
-  await openFolder(path);
+  })
+  if (path) {
+    await openFolder(path[0]);
+  }
 }
 
 app.on('open-file', async (event, path) => {
@@ -152,7 +153,7 @@ app.on('ready', async () => {
     jupyterPath = execSync("which jupyter").toString().replace("\n", "")
     } catch (err) {
       dialog.showMessageBox(null, {
-        message: `${err}`
+        message: `Cannot determine the path for jupyter: ${err}`
       })
   }
   if(process.argv.length > 1) {
