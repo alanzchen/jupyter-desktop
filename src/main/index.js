@@ -28,11 +28,12 @@ function sleep(ms) {
 }
 
 function getLabSessions() {
-  let list_str = execSync(`${jupyterPath} notebook list --jsonlist`).toString();
+  let list_str = execSync(`${jupyterPath} lab list --jsonlist`).toString();
+  console.log(list_str)
   let notebooks = JSON.parse(list_str);
   let map = new Map();
   notebooks.forEach((v, i, a) => {
-    let key = v["notebook_dir"]
+    let key = v["root_dir"]
     map.set(key, v)
   })
   return map
@@ -120,7 +121,8 @@ async function openFolder(path) {
         await sleep(500)
         labSession = getLabSessions().get(path)
       }
-      createWindow(labSession.url, path, proc)
+      const url = `${labSession.url}lab?token=${labSession.token}`
+      createWindow(url, path, proc)
     }
   } else {
     dialog.showMessageBox(null, {
@@ -133,7 +135,7 @@ async function newWindow() {
   let path = dialog.showOpenDialogSync(null, {
     title: "Jupyter Desktop",
     message: "Select a location to launch Jupyter Lab",
-    buttonLabel: "Launch Jupyter",
+    buttonLabel: "Launch Jupyter Lab",
     properties: ["openDirectory", "createDirectory"]
   })
   if (path) {
@@ -151,6 +153,7 @@ app.on('ready', async () => {
   app.dock.setMenu(dockMenu)
   try {
     jupyterPath = execSync("which jupyter").toString().replace("\n", "")
+    console.log(jupyterPath)
     } catch (err) {
       dialog.showMessageBox(null, {
         message: `Cannot determine the path for jupyter: ${err}`
